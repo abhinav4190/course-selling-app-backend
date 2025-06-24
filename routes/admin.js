@@ -3,6 +3,7 @@ const { z } = require("zod");
 const bcrypt = require("bcrypt");
 const { userModel, adminModel, courseModel, purchaseModel } = require("../db");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const adminMiddleware = require("../middlewares/admin");
 
 const adminRouter = Router();
@@ -117,15 +118,80 @@ adminRouter.post("/create-course", adminMiddleware, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-adminRouter.delete("/delete-course", (req, res) => {
-  res.json({
-    message: "Delete Course Endpoint",
+adminRouter.delete("/delete-course", adminMiddleware, async (req, res) => {
+  const userID = req.userId;
+  const courseSchema = z.object({
+    courseId: z.string(),
   });
+  const parseResult = courseSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: "Invalid Input",
+      details: parseResult.error.flatten(),
+    });
+  }
+  const { courseId } = parseResult.data;
+  if (!mongoose.Types.ObjectId.isValid(courseId)) {
+    return res.status(400).json({ error: "Invalid course ID" });
+  }
+  try {
+    const course = await courseModel.findOne({
+      _id: courseId,
+      creatorId: userID,
+    });
+    if (!course) return res.status(401).json({ error: "Course not found" });
+    await courseModel.deleteOne({
+      _id: courseId,
+    });
+    res.json({
+      message: "Course deleted successfully",
+      deletedCourse: course,
+    });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
-adminRouter.put("/add-course-content", (req, res) => {
-  res.json({
-    message: "Add Course Content Endpoint",
+adminRouter.put("/add-course-content", adminMiddleware, async (req, res) => {
+  const userId = req.userId;
+  const courseSchema = z.object({
+    courseId: z.string(),
+    courseContent: z.string(),
   });
+
+  const parseResult = courseSchema.safeParse(req.body);
+
+  if (!parseResult.success) {
+    return res.status(401).json({
+      message: "Invalid Input",
+      error: parseResult.error.flatten(),
+    });
+  }
+
+  const { courseId,  courseContent} = parseResult.data;
+
+  if (!mongoose.Types.ObjectId.isValid(courseId)) {
+    return res.status(400).json({
+      error: "Invalid Course Id",
+    });
+  }
+  try {
+    const updatedCourse = await courseModel.findOneAndUpdate(
+      { _id: courseId, creatorId: userId },
+      { $set: { courseContent: courseContent } },
+      { new: true }
+    );
+    if(!updatedCourse) return res.status(401).json({
+      message: "error in finding and updating course"
+    })
+    res.json({
+      message: "Course content updated successfully",
+      updatedCourse: updatedCourse,
+    });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 module.exports = {
   adminRouter: adminRouter,

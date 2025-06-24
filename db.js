@@ -60,3 +60,18 @@ module.exports = {
   courseModel,
   purchaseModel,
 };
+
+
+// {
+//   "message": "Course created successfully",
+//   "course": {
+//     "title": "Full Stack Dev",
+//     "description": "The course by abhinav",
+//     "price": 499,
+//     "imageUrl": "https://ibb.co/5XNR0wfP",
+//     "courseContent": "mongodb, express",
+//     "creatorId": "685a4290edc2b3628bdd17a3",
+//     "_id": "685b1535125adbb5488d27c8",
+//     "__v": 0
+//   }
+// }
