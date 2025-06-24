@@ -2,6 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const { z } = require("zod");
 const bcrypt = require("bcrypt");
+const userMiddleware = require("../middlewares/user");
 
 const { userModel } = require("../db");
 
@@ -78,6 +79,12 @@ userRouter.post("/signin", async (req, res) => {
     console.error("Signin  error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
+});
+
+userRouter.post("/my", userMiddleware, async (req, res) => {
+  res.json({
+    userid: req.userID
+  })
 });
 
 module.exports = {

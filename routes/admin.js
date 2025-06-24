@@ -3,6 +3,7 @@ const { z } = require("zod");
 const bcrypt = require("bcrypt");
 const { userModel, adminModel, courseModel, purchaseModel } = require("../db");
 const jwt = require("jsonwebtoken");
+const adminMiddleware = require("../middlewares/admin");
 
 const adminRouter = Router();
 
@@ -74,15 +75,47 @@ adminRouter.post("/signin", async (req, res) => {
       token: token,
     });
   } catch (err) {
-     console.error("Signin error:", err);
+    console.error("Signin error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-adminRouter.post("/create-course", (req, res) => {
-  res.json({
-    message: "Create Course Endpoint",
+adminRouter.post("/create-course", adminMiddleware, async (req, res) => {
+  const userID = req.userId;
+  const courseSchema = z.object({
+    title: z.string(),
+    description: z.string(),
+    price: z.number(),
+    imageUrl: z.string(),
+    courseContent: z.string(),
   });
+  const parseResult = courseSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: "Invalid Input",
+      details: parseResult.error.flatten(),
+    });
+  }
+  const { title, description, price, imageUrl, courseContent } =
+    parseResult.data;
+
+  try {
+    const course = await courseModel.create({
+      title,
+      description,
+      price,
+      imageUrl,
+      courseContent,
+      creatorId: userID,
+    });
+    res.json({
+      message: "Course created successfully",
+      course: course,
+    });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 adminRouter.delete("/delete-course", (req, res) => {
   res.json({
