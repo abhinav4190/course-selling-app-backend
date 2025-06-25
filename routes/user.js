@@ -4,7 +4,9 @@ const { z } = require("zod");
 const bcrypt = require("bcrypt");
 const userMiddleware = require("../middlewares/user");
 
-const { userModel } = require("../db");
+const { userModel, courseModel, purchaseModel } = require("../db");
+const course = require("./course");
+const { default: mongoose } = require("mongoose");
 
 const userRouter = express.Router();
 
@@ -83,8 +85,82 @@ userRouter.post("/signin", async (req, res) => {
 
 userRouter.post("/my", userMiddleware, async (req, res) => {
   res.json({
-    userid: req.userID
-  })
+    userid: req.userID,
+  });
+});
+
+userRouter.get("/all-courses", async (req, res) => {
+  try {
+    const allCourses = await courseModel.find();
+    res.json({
+      message: "Course fetched successful",
+      token: allCourses,
+    });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+userRouter.get("/purchased-course", userMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const purchasedCourses = await purchaseModel.find({ userId });
+
+    const courseIds = purchasedCourses.map(course => course.courseId);
+
+    const courses = await courseModel.find({ _id: { $in: courseIds } });
+
+    res.json({
+      message: "Purchased courses fetched successfully",
+      courses,
+    });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+userRouter.post("/purchase-course", userMiddleware, async (req, res) => {
+  const userId = req.userId;
+  const purchaseSchema = z.object({
+    courseId: z.string(),
+  });
+  const parseResult = purchaseSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(401).json({
+      message: "Invalid Input",
+      error: parseResult.error.flatten(),
+    });
+  }
+  const { courseId } = parseResult.data;
+
+  if (!mongoose.Types.ObjectId.isValid(courseId)) {
+    return res.status(400).json({ error: "Invalid course ID" });
+  }
+
+  try {
+    const existingPurchase = await purchaseModel.findOne({ courseId, userId });
+    if (!existingPurchase) {
+      const purchasedCourse = await purchaseModel.create({
+        courseId,
+        userId,
+      });
+      res.json({
+        message: "Course purchased successfully",
+        purchasedCourse: purchasedCourse,
+      });
+    } else {
+      res.json({
+        message: "Course is alreday purchased",
+      });
+    }
+  } catch (err) {
+    res.status(500).json({
+      error: "Internal Server Error",
+    });
+  }
 });
 
 module.exports = {
